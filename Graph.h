@@ -24,37 +24,48 @@ public:
 
 class Node {
 public:
-	Matrix<float,Dynamic,3,RowMajor> pixels; //(row:(node*node) column:3)
+	Matrix<float, Dynamic, 3, RowMajor> pixels; //(row:(node*node) column:3)
 	//Matrix<int, Dynamic, 2, RowMajor> pixelIndices;
-	std::set<Node*> edges;
+	std::set<Node**> edges;
 	param planeParam;
 
 	struct {
 		Matrix3f covarianceMatrix;
-		Vector3f meanVector;
-		int pixelNumber;
+		Vector3f meanVector = Vector3f(0.0, 0.0, 0.0);
+		int pixelNumber = 0;
 	}extraData;
 
 
-	float minSquareError = 0;
+	float meanSquareError = 0;
 
 	Node(float* arr, int length) {
-		if (!(length % 3)) return;
+		if (*arr == NULL || !(length % 3)) return;
 		for (int i = 0; i < length; ++i) {
 			pixels << arr[i];
-			extraData.pixelNumber++;
+			
 		}
-		for (int i = 0; i < pixels.rows(); i++) {
+		initialization();
+	}
+
+	void initialization() {
+		extraData.pixelNumber = pixels.rows();
+		for (int i = 0; i < extraData.pixelNumber; i++) {
 			extraData.meanVector += pixels.row(i);
 		}
 		extraData.meanVector /= pixels.rows();
-		for (int i = 0; i < pixels.rows; i++) {
+		for (int i = 0; i <extraData.pixelNumber; i++) {
 			pixels.row(i) -= extraData.meanVector;
 		}
 		extraData.covarianceMatrix = pixels.transpose()*pixels;
-		for (int i = 0; i < pixels.rows; i++) {
+		for (int i = 0; i < extraData.pixelNumber; i++) {
 			pixels.row(i) += extraData.meanVector;
 		}
+	}
+
+	void merge(Node* node) {
+		for (int i = 0; i < node->pixels.rows(); ++i)
+			pixels << node->pixels.row(i);
+		initialization();
 	}
 
 	void plane();
@@ -62,7 +73,7 @@ public:
 	bool rejectNode();
 
 	bool operator>(const Node node) {
-		return (minSquareError < node.minSquareError);
+		return (meanSquareError < node.meanSquareError);
 	}
 };
 
@@ -109,9 +120,9 @@ bool Node::rejectNode() {
 	//over-MSE
 	plane();
 	for (int i = 0; i < pixels.rows; i++) {
-		minSquareError += pow(planeParam.normal.dot(pixels.row(i)), 2);
+		meanSquareError += pow(planeParam.normal.dot(pixels.row(i)), 2);
 	}
-	if (minSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
+	if (meanSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
 		return true;
 
 	return false;
@@ -124,6 +135,8 @@ public:
 	void connectEdge();
 };
 
+//¶þ¼¶Ö¸Õë
+
 void Graph::connectEdge() {
 	for (int i = 0; i < row; i++)
 		for (int j = 0; j < column; j++) {
@@ -132,20 +145,20 @@ void Graph::connectEdge() {
 			if (i != 0 && i != row-1) {
 				if (graph[(i - 1)*row + j] != NULL&&graph[(i + 1)*row + j] != NULL)
 					if (graph[(i - 1)*row + j]->planeParam.normal.dot(graph[(i + 1)*row + j]->planeParam.normal) > T_ANG) {
-						graph[i*row + j]->edges.insert(graph[(i - 1)*row + j]);
-						graph[i*row + j]->edges.insert(graph[(i + 1)*row + j]);
-						graph[(i - 1)*row + j]->edges.insert(graph[i*row + j]);
-						graph[(i + 1)*row + j]->edges.insert(graph[i*row + j]);
+						graph[i*row + j]->edges.insert(&graph[(i - 1)*row + j]);
+						graph[i*row + j]->edges.insert(&graph[(i + 1)*row + j]);
+						graph[(i - 1)*row + j]->edges.insert(&graph[i*row + j]);
+						graph[(i + 1)*row + j]->edges.insert(&graph[i*row + j]);
 					}
 			}
 			if (j != 0 && j != column - 1) {
 				if (graph[i*row + j - 1] != NULL&&graph[i*row + j + 1] != NULL)
 					if (graph[i*row + j - 1]->planeParam.normal.dot(graph[i*row + (j + 1)]->planeParam.normal) > T_ANG)
 					{
-						graph[i*row + j]->edges.insert(graph[i*row + j - 1]);
-						graph[i*row + j]->edges.insert(graph[i*row + j + 1]);
-						graph[i*row + j - 1]->edges.insert(graph[i*row + j]);
-						graph[i*row + j + 1]->edges.insert(graph[i*row + j]);
+						graph[i*row + j]->edges.insert(&graph[i*row + j - 1]);
+						graph[i*row + j]->edges.insert(&graph[i*row + j + 1]);
+						graph[i*row + j - 1]->edges.insert(&graph[i*row + j]);
+						graph[i*row + j + 1]->edges.insert(&graph[i*row + j]);
 					}
 			}
 		}
