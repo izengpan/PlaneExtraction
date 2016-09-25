@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graph.h" />
+    <ClInclude Include="MinHeap.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PlaneExtraction.cpp" />

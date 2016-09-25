@@ -5,17 +5,24 @@
 #define ALPHA 0.015
 #define SIGMA 0.0000016
 #define EPSILON 5.5
+#define T_ANG 0.966 //(cos(15))
 
 #include <vector>
-#include <eigen3/Eigen/Dense>
+#include <set>
+//#include <eigen3/Eigen/Dense>
+#include </Library/Eigen/include/eigen3/Eigen/Dense>
 
 using namespace Eigen;
 
 class Node {
-	Matrix<float,Dynamic,3> pixels; //(row:(node*node) column:3)
-	std::vector<Node*> edges;
+public:
+	Matrix<float,Dynamic,3,RowMajor> pixels; //(row:(node*node) column:3)
+	std::set<Node*> edges;
 	std::vector<float> extraData;
-	Vector4f param;
+	struct{
+		Vector3f normal;
+		float d;
+	}param;
 
 	Node(float* arr, int length) {
 		if (!(length % 3)) return;
@@ -86,16 +93,45 @@ bool Node::rejectNode() {
 		pixels.row(i) += mean;
 	}
 
+	param.normal = normalVector;
+	param.d = normalVector.dot(mean);
 
 	return false;
 }
 
-
 class Graph {
 	int row, column;
 	std::vector<Node*> graph;
+
+	void connectEdge();
 };
 
+void Graph::connectEdge() {
+	for (int i = 0; i < row; i++)
+		for (int j = 0; j < column; j++) {
+			if (graph[i*row + j] == NULL)
+				continue;
+			if (i != 0 && i != row-1) {
+				if (graph[(i - 1)*row + j] != NULL&&graph[(i + 1)*row + j] != NULL)
+					if (graph[(i - 1)*row + j]->param.normal.dot(graph[(i + 1)*row + j]->param.normal) > T_ANG) {
+						graph[i*row + j]->edges.insert(graph[(i - 1)*row + j]);
+						graph[i*row + j]->edges.insert(graph[(i + 1)*row + j]);
+						graph[(i - 1)*row + j]->edges.insert(graph[i*row + j]);
+						graph[(i + 1)*row + j]->edges.insert(graph[i*row + j]);
+					}
+			}
+			if (j != 0 && j != column - 1) {
+				if (graph[i*row + j - 1] != NULL&&graph[i*row + j + 1] != NULL)
+					if (graph[i*row + j - 1]->param.normal.dot(graph[i*row + (j + 1)]->param.normal) > T_ANG)
+					{
+						graph[i*row + j]->edges.insert(graph[i*row + j - 1]);
+						graph[i*row + j]->edges.insert(graph[i*row + j + 1]);
+						graph[i*row + j - 1]->edges.insert(graph[i*row + j]);
+						graph[i*row + j + 1]->edges.insert(graph[i*row + j]);
+					}
+			}
+		}
+}
 
 
 #endif // !_PE_GRAPH_
