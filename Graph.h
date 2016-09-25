@@ -9,31 +9,87 @@
 
 #include <vector>
 #include <set>
-//#include <eigen3/Eigen/Dense>
 #include </Library/Eigen/include/eigen3/Eigen/Dense>
 
 using namespace Eigen;
 
+class param {
+public:
+	Vector3f normal;
+	float d;
+	param(Vector3f normal=Vector3f(0.0,0.0,0.0), float d=0.0) :normal(normal), d(d) {}
+};
+
+
+
 class Node {
 public:
 	Matrix<float,Dynamic,3,RowMajor> pixels; //(row:(node*node) column:3)
+	//Matrix<int, Dynamic, 2, RowMajor> pixelIndices;
 	std::set<Node*> edges;
-	std::vector<float> extraData;
-	struct{
-		Vector3f normal;
-		float d;
-	}param;
+	param planeParam;
+
+	struct {
+		Matrix3f covarianceMatrix;
+		Vector3f meanVector;
+		int pixelNumber;
+	}extraData;
+
+
+	float minSquareError = 0;
 
 	Node(float* arr, int length) {
 		if (!(length % 3)) return;
 		for (int i = 0; i < length; ++i) {
 			pixels << arr[i];
+			extraData.pixelNumber++;
+		}
+		for (int i = 0; i < pixels.rows(); i++) {
+			extraData.meanVector += pixels.row(i);
+		}
+		extraData.meanVector /= pixels.rows();
+		for (int i = 0; i < pixels.rows; i++) {
+			pixels.row(i) -= extraData.meanVector;
+		}
+		extraData.covarianceMatrix = pixels.transpose()*pixels;
+		for (int i = 0; i < pixels.rows; i++) {
+			pixels.row(i) += extraData.meanVector;
 		}
 	}
 
+	void plane();
+
 	bool rejectNode();
 
+	bool operator>(const Node node) {
+		return (minSquareError < node.minSquareError);
+	}
 };
+
+
+//use Eigen for matrix operations ;OpenBLAS may be faster
+void Node::plane() {
+	JacobiSVD<MatrixXf> svd(extraData.covarianceMatrix, ComputeThinU | ComputeThinV);
+	Vector3f eigenvalues = svd.singularValues();
+	Matrix3f eigenvectors = svd.matrixU();
+
+	int minIndex = 0;
+	for (int i = 0; i < eigenvalues.rows(); ++i)
+		if (eigenvalues(i) < eigenvalues(minIndex)) i = minIndex;
+	switch (minIndex) {
+	case 0:
+		planeParam.normal = eigenvectors.col(1)*eigenvectors.col(2);
+		break;
+	case 1:
+		planeParam.normal = eigenvectors.col(0)*eigenvectors.col(2);
+		break;
+	case 2:
+		planeParam.normal = eigenvectors.col(0)*eigenvectors.col(1);
+		break;
+	}
+
+	planeParam.d = planeParam.normal.dot(extraData.meanVector);
+}
 
 bool Node::rejectNode() {
 
@@ -50,59 +106,21 @@ bool Node::rejectNode() {
 				if (abs(pixels(i*NODE_SIZE + j, 3) - pixels(i *NODE_SIZE + j + 1, 3)) > 2 * ALPHA*(abs(pixels(i*NODE_SIZE + j, 3)) + 0.5)) return true;
 		}
 
-
 	//over-MSE
-	//use Eigen for matrix operations ;OpenBLAS may be faster
-	Vector3f mean(0.0, 0.0, 0.0);
+	plane();
 	for (int i = 0; i < pixels.rows; i++) {
-		mean += pixels.row(i);
+		minSquareError += pow(planeParam.normal.dot(pixels.row(i)), 2);
 	}
-	for (int i = 0; i < pixels.rows; i++) {
-		pixels.row(i) -= mean;
-	} 
-		//use PCA to fit the plane
-	Matrix3f PCAMatrix = pixels.transpose()*pixels;
-	JacobiSVD<MatrixXf> svd(PCAMatrix, ComputeThinU | ComputeThinV);
-	Vector3f eigenvalues = svd.singularValues();
-	Matrix3f eigenvectors = svd.matrixU();
-	
-	int minIndex=0;
-	for (int i = 0; i < eigenvalues.rows(); ++i)
-		if (eigenvalues(i) < eigenvalues(minIndex)) i = minIndex;
-	Vector3f normalVector;
-	switch (minIndex) {
-		case 0:
-			normalVector = eigenvectors.col(1)*eigenvectors.col(2);
-			break;
-		case 1:
-			normalVector = eigenvectors.col(0)*eigenvectors.col(2);
-			break;
-		case 2:
-			normalVector = eigenvectors.col(0)*eigenvectors.col(1);
-			break;
-	}
-
-	float MSE;
-	for (int i = 0; i < pixels.rows; i++) {
-		MSE += pow(normalVector.dot(pixels.row(i)),2);
-	}
-	if (MSE > pow(((SIGMA*mean(2)*mean(2) + EPSILON)), 2))
+	if (minSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
 		return true;
-	
-	for (int i = 0; i < pixels.rows; i++) {
-		pixels.row(i) += mean;
-	}
-
-	param.normal = normalVector;
-	param.d = normalVector.dot(mean);
 
 	return false;
 }
 
 class Graph {
+public:
 	int row, column;
 	std::vector<Node*> graph;
-
 	void connectEdge();
 };
 
@@ -113,7 +131,7 @@ void Graph::connectEdge() {
 				continue;
 			if (i != 0 && i != row-1) {
 				if (graph[(i - 1)*row + j] != NULL&&graph[(i + 1)*row + j] != NULL)
-					if (graph[(i - 1)*row + j]->param.normal.dot(graph[(i + 1)*row + j]->param.normal) > T_ANG) {
+					if (graph[(i - 1)*row + j]->planeParam.normal.dot(graph[(i + 1)*row + j]->planeParam.normal) > T_ANG) {
 						graph[i*row + j]->edges.insert(graph[(i - 1)*row + j]);
 						graph[i*row + j]->edges.insert(graph[(i + 1)*row + j]);
 						graph[(i - 1)*row + j]->edges.insert(graph[i*row + j]);
@@ -122,7 +140,7 @@ void Graph::connectEdge() {
 			}
 			if (j != 0 && j != column - 1) {
 				if (graph[i*row + j - 1] != NULL&&graph[i*row + j + 1] != NULL)
-					if (graph[i*row + j - 1]->param.normal.dot(graph[i*row + (j + 1)]->param.normal) > T_ANG)
+					if (graph[i*row + j - 1]->planeParam.normal.dot(graph[i*row + (j + 1)]->planeParam.normal) > T_ANG)
 					{
 						graph[i*row + j]->edges.insert(graph[i*row + j - 1]);
 						graph[i*row + j]->edges.insert(graph[i*row + j + 1]);
