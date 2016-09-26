@@ -65,7 +65,11 @@ public:
 	void merge(Node* node) {
 		for (int i = 0; i < node->pixels.rows(); ++i)
 			pixels << node->pixels.row(i);
-		initialization();
+		extraData.meanVector = extraData.meanVector*extraData.pixelNumber + node->extraData.meanVector*node->extraData.pixelNumber;
+		extraData.pixelNumber += node->extraData.pixelNumber;
+		extraData.meanVector /= extraData.pixelNumber;
+		extraData.covarianceMatrix += node->extraData.covarianceMatrix;
+
 	}
 
 	void plane();
