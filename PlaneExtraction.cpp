@@ -24,10 +24,9 @@ void AHCluster(Graph* graph) {
 			Node* currentNode = *edge;
 			float currentMSE;
 			mergeNode = *node;
-			mergeNode->merge(currentNode);
-			mergeNode->plane();
-			if ((minMSE < 0) || (mergeNode->meanSquareError < minMSE)) {
-				minMSE = mergeNode->meanSquareError;
+			currentMSE = (*node)->testMerge(currentNode);
+			if ((minMSE < 0) || (currentMSE < minMSE)) {
+				minMSE = currentMSE;
 				bestNode = edge;
 			}
 		}
@@ -68,7 +67,7 @@ int main() {
 	int column;
 	int* data;
 	os >> row>>column;
-	data = new int[row*column * 3];
+	data = new int[row*column*3];
 	
 	int k = 0;
 	for (int i = 0; i < row; ++i) 

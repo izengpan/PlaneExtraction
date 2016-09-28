@@ -13,8 +13,6 @@
 
 using namespace Eigen;
 
-
-
 class PlaneParam {
 public:
 	Vector3f normal;
@@ -29,7 +27,9 @@ public:
 	FittingParam(Vector3f normal, float meanSqaureError) :normal(normal), meanSquareError(meanSqaureError) {}
 };
 
-FittingParam fitPlane(Matrix3f& const covarianceMatrix) {
+
+//use Eigen for matrix decomposition;OpenBlas may be faster
+FittingParam fitPlane(Matrix3f covarianceMatrix) {
 	JacobiSVD<MatrixXf> svd(covarianceMatrix, ComputeThinU | ComputeThinV);
 	Vector3f eigenvalues = svd.singularValues();
 	Matrix3f eigenvectors = svd.matrixU();
@@ -54,12 +54,9 @@ FittingParam fitPlane(Matrix3f& const covarianceMatrix) {
 	return FittingParam(normal, eigenvalues(minIndex));
 }
 
-
-
-
 class Node {
 public:
-	Matrix<float,Dynamic, 3, RowMajor> pixels; //(row:(node*node) column:3)
+	Matrix<float,Dynamic, 3, RowMajor> pixels; //(row:(node*node) column:3)  deleted after initialization
 	
 	std::set<Node**> edges;
 	PlaneParam planeParam;
@@ -99,15 +96,19 @@ public:
 		}
 	}
 
-	float merge(Node* node) {
-
+	void merge(Node* node) {
 		extraData.meanVector = extraData.meanVector*extraData.pixelNumber + node->extraData.meanVector*node->extraData.pixelNumber;
 		extraData.pixelNumber += node->extraData.pixelNumber;
 		extraData.meanVector /= extraData.pixelNumber;
 		extraData.covarianceMatrix += node->extraData.covarianceMatrix;
+		plane(extraData.covarianceMatrix);
 	}
 
-	void plane(Matrix3f& const covarianceMatrix) {
+	float testMerge(Node* node) {
+		return fitPlane(extraData.covarianceMatrix+node->extraData.covarianceMatrix).meanSquareError;
+	}
+
+	void plane(Matrix3f covarianceMatrix) {
 		FittingParam param = fitPlane(covarianceMatrix);
 		meanSquareError = param.meanSquareError;
 		planeParam = PlaneParam(param.normal,param.normal.dot(extraData.meanVector));
@@ -166,7 +167,6 @@ public:
 	}
 };
 
-//¶þ¼¶Ö¸Õë
 
 void Graph::connectEdge() {
 	for (int i = 0; i < row; i++)
