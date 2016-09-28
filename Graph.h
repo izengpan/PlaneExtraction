@@ -38,7 +38,7 @@ FittingParam fitPlane(Matrix3f covarianceMatrix) {
 
 	int minIndex = 0;
 	for (int i = 0; i < eigenvalues.rows(); ++i)
-		if (eigenvalues(i) < eigenvalues(minIndex)) i = minIndex;
+		if (eigenvalues(i) < eigenvalues(minIndex)) minIndex = i;
 	switch (minIndex) {
 	case 0:
 		normal = eigenvectors.col(1).cross(eigenvectors.col(2));
@@ -68,17 +68,17 @@ public:
 		int pixelNumber = 0;
 	}extraData;
 
-
-	float meanSquareError = 0;
-
 	Node(int* arr=NULL, int x=0,int y=0,int nodesize=0,int row=0,int column=0) {
 		pixels.resize(nodesize*nodesize, 3);
 		if (arr == NULL) return;
 		for (int i = 0; i < nodesize; ++i)
 			for (int j = 0; j < nodesize; ++j) {
-				pixels.row(i) << arr[x*nodesize*column + i*column + y*nodesize + j],arr[x*nodesize*column + i*column + y*nodesize + j + 1],	arr[x*nodesize*column + i*column + y*nodesize + j + 2];
+				pixels.row(i*nodesize+j) << arr[x*nodesize*column*3 + i*column*3 + y*nodesize*3 + j*3],arr[x*nodesize*column*3 + i*column*3 + y*nodesize*3 + j*3 + 1],	arr[x*nodesize*column*3 + i*column*3 + y*nodesize*3 + j*3 + 2];
 			}
 		initialization();
+	}
+
+	~Node(){
 	}
 
 	void initialization() {
@@ -149,7 +149,6 @@ bool Node::rejectNode() {
 	if (meanSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
 		return true;
 	
-	pixels.resize(0, 0);
 
 	return false;
 }

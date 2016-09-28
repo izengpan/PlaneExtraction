@@ -3,6 +3,7 @@
 #include <queue>
 #include "Graph.h"
 #include <fstream>
+#include <iostream>
 
 std::vector<Node*> coarseResult;
 
@@ -77,13 +78,20 @@ int main() {
 			data[k++] = (float)(i - row / 2) /528 * d;
 			data[k++] = (float)(j - column / 2) / 528 * d;
 			data[k++] = d;
+			//if (d != 0) {
+			//	std::cout << data[k - 3]<<" " << data[k - 2] <<" "<< data[k - 1] << std::endl;
+			//	std::cout << k << std::endl;
+			//}
 		}
 	Graph rawdata(row / NODE_SIZE, column / NODE_SIZE);
 
 	for (int i = 0; i < row / NODE_SIZE; ++i) 
 		for (int j = 0; j < column / NODE_SIZE; ++j) {
 			Node* currentNode = new Node(data, i, j, NODE_SIZE, row, column);
-			if (currentNode->rejectNode()) rawdata.addNode(NULL);
+			if (currentNode->rejectNode()) {
+				rawdata.addNode(NULL);
+				continue;
+			}
 			else rawdata.addNode(currentNode);
 		
 		}
