@@ -158,7 +158,6 @@ bool Node::rejectNode() {
 	if (meanSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
 		return true;
 	
-	//一旦不加这句就会死循环
 	if (meanSquareError == 0) return true;
 
 	return false;

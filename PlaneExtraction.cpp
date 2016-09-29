@@ -1,23 +1,35 @@
-#define T_NUM 800
+#define T_NUM 100
 
 #include <queue>
 #include "Graph.h"
 #include <fstream>
 #include <iostream>
 
+
+//global variable
+int row;
+int column;
+int* pixelNode;
 std::vector<Node*> coarseResult;
+class cmp {
+public:
+	bool operator()(Node** n1, Node** n2) {
+		return (**n1).meanSquareError > (**n2).meanSquareError;
+	}
+};
 
 
-
-void AHCluster(Graph* graph) {
-	std::priority_queue<Node**> queue;
-	for (auto node : graph->graph)
-		if (node != NULL) queue.push(&node);
+void AHCluster(std::vector<Node*>& graph) {
+	std::priority_queue < Node**, std::vector<Node**>,cmp> queue;
+	for (int i = 0; i < graph.size();++i) {
+		if (graph[i] != NULL)
+			queue.push(&graph[i]);
+	}
 	while (!queue.empty())
 	{
 		Node** node = queue.top();
 		queue.pop();
-		if ((*node) == NULL) continue;
+		if ((*node)->ignore) continue;
 		float minMSE=-1.0; 
 		Node** bestNode=NULL;
 		Node* mergeNode=NULL;
@@ -31,45 +43,48 @@ void AHCluster(Graph* graph) {
 				bestNode = edge;
 			}
 		}
-		if (minMSE >= pow(((SIGMA* mergeNode->extraData.meanVector(2)* mergeNode->extraData.meanVector(2) + EPSILON)), 2)) {
+		if ((mergeNode==NULL)||(minMSE >= pow(((SIGMA* mergeNode->extraData.meanVector(2)* mergeNode->extraData.meanVector(2) + EPSILON)), 2))) {
 			if ((*node)->extraData.pixelNumber > T_NUM) {
 				coarseResult.push_back(*node);
 			}
 			for (auto neighbouringNode : (*node)->edges) {
 				(*neighbouringNode)->edges.erase(node);
 			}
-			*node = NULL;
+			(*node)->ignore = true;
 		}
 		else {
 			(*node)->merge(*bestNode);
+			int count = (**node).pixelIndex.size() - (**node).extraData.pixelNumber;
 			for (auto neighbouringNode : (*bestNode)->edges) {
 				(*neighbouringNode)->edges.erase(bestNode);
 				if (neighbouringNode!=node)
 					(*neighbouringNode)->edges.insert(node);
 			}
-			delete *bestNode;
-			*bestNode = NULL;
+			(*bestNode)->ignore = true;
 			queue.push(node);
 		}
 	}
 
+	//
 }
 
-void refine(Graph* graph) {
-
-
+void refine(std::vector<Node*>& graph) {
+	for (int i = 0; i < graph.size(); ++i) {
+		for (auto index : graph[i]->pixelIndex) {
+			pixelNode[index[0] * column + index[1]] = i;
+		}
+	}
 }
 
 
 int main() {
 	std::ifstream os;
 	os.open("depth.txt");
-	int row;
-	int column;
 	int* data;
 	os >> row>>column;
 	data = new int[row*column*3];
-	
+	pixelNode = new int[row*column];
+
 	int k = 0;
 	for (int i = 0; i < row; ++i) 
 		for (int j = 0; j < column; ++j) {
@@ -78,12 +93,8 @@ int main() {
 			data[k++] = (float)(i - row / 2) /528 * d;
 			data[k++] = (float)(j - column / 2) / 528 * d;
 			data[k++] = d;
-			//if (d != 0) {
-			//	std::cout << data[k - 3]<<" " << data[k - 2] <<" "<< data[k - 1] << std::endl;
-			//	std::cout << k << std::endl;
-			//}
 		}
-	Graph rawdata(row / NODE_SIZE, column / NODE_SIZE);
+	Graph rawdata;
 
 	for (int i = 0; i < row / NODE_SIZE; ++i) 
 		for (int j = 0; j < column / NODE_SIZE; ++j) {
@@ -95,7 +106,8 @@ int main() {
 			else rawdata.addNode(currentNode);
 		
 		}
-	rawdata.connectEdge();
 
+	rawdata.connectEdge(row/NODE_SIZE,column/NODE_SIZE);
+	AHCluster(rawdata.graph);
 	return 0;
 }
