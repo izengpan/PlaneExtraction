@@ -60,7 +60,7 @@ public:
 	std::vector<Vector2i,aligned_allocator<Vector2i>> pixelIndex;
 
 
-	std::set<Node**> edges;
+	std::set<Node*> edges;
 	PlaneParam planeParam;
 	float meanSquareError;
 
@@ -104,12 +104,13 @@ public:
 	void merge(Node* node) {
 		for (auto index : node->pixelIndex)
 			pixelIndex.push_back(index);
+		node->pixelIndex.clear();
 		extraData.meanVector = extraData.meanVector*extraData.pixelNumber + node->extraData.meanVector*node->extraData.pixelNumber;
 		extraData.pixelNumber += node->extraData.pixelNumber;
 		extraData.meanVector /= extraData.pixelNumber;
 		extraData.covarianceMatrix += node->extraData.covarianceMatrix;
 		plane(extraData.covarianceMatrix);
-		int count = pixelIndex.size() - extraData.pixelNumber;
+		//int count = pixelIndex.size() - extraData.pixelNumber;
 		return;
 	}
 
@@ -159,7 +160,7 @@ bool Node::rejectNode() {
 		return true;
 	
 	//一旦不加这句就会死循环
-	if (meanSquareError == 0) return true;
+	//if (meanSquareError == 0) return true;
 
 	return false;
 }
@@ -188,20 +189,20 @@ void Graph::connectEdge(int row,int column) {
 			if (i != 0 && i != row-1) {
 				if (graph[(i - 1)*column + j] != NULL&&graph[(i + 1)*column + j] != NULL)
 					if (graph[(i - 1)*column + j]->planeParam.normal.dot(graph[(i + 1)*column + j]->planeParam.normal) > T_ANG) {
-						graph[i*column + j]->edges.insert(&graph[(i - 1)*column + j]);
-						graph[i*column + j]->edges.insert(&graph[(i + 1)*column + j]);
-						graph[(i - 1)*column + j]->edges.insert(&graph[i*column + j]);
-						graph[(i + 1)*column + j]->edges.insert(&graph[i*column + j]);
+						graph[i*column + j]->edges.insert(graph[(i - 1)*column + j]);
+						graph[i*column + j]->edges.insert(graph[(i + 1)*column + j]);
+						graph[(i - 1)*column + j]->edges.insert(graph[i*column + j]);
+						graph[(i + 1)*column + j]->edges.insert(graph[i*column + j]);
 					}
 			}
 			if (j != 0 && j != column - 1) {
 				if (graph[i*column + j - 1] != NULL&&graph[i*column + j + 1] != NULL)
 					if (graph[i*column + j - 1]->planeParam.normal.dot(graph[i*column + (j + 1)]->planeParam.normal) > T_ANG)
 					{
-						graph[i*column + j]->edges.insert(&graph[i*column + j - 1]);
-						graph[i*column + j]->edges.insert(&graph[i*column + j + 1]);
-						graph[i*column + j - 1]->edges.insert(&graph[i*column + j]);
-						graph[i*column + j + 1]->edges.insert(&graph[i*column + j]);
+						graph[i*column + j]->edges.insert(graph[i*column + j - 1]);
+						graph[i*column + j]->edges.insert(graph[i*column + j + 1]);
+						graph[i*column + j - 1]->edges.insert(graph[i*column + j]);
+						graph[i*column + j + 1]->edges.insert(graph[i*column + j]);
 					}
 			}
 		}

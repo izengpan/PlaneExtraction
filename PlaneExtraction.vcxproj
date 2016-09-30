@@ -23,6 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PlaneExtraction.cpp" />
+    <ClCompile Include="TodoList.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4F96E220-95B6-4EC1-BE3A-A8824D4BB003}</ProjectGuid>

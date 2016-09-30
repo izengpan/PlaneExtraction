@@ -13,59 +13,60 @@ int* pixelNode;
 std::vector<Node*> coarseResult;
 class cmp {
 public:
-	bool operator()(Node** n1, Node** n2) {
-		return (**n1).meanSquareError > (**n2).meanSquareError;
+	bool operator()(Node* n1, Node* n2) {
+		return (*n1).meanSquareError > (*n2).meanSquareError;
 	}
 };
 
 
 void AHCluster(std::vector<Node*>& graph) {
-	std::priority_queue < Node**, std::vector<Node**>,cmp> queue;
+	std::priority_queue < Node*, std::vector<Node*>,cmp> queue;
 	for (int i = 0; i < graph.size();++i) {
 		if (graph[i] != NULL)
-			queue.push(&graph[i]);
+			queue.push(graph[i]);
 	}
 	while (!queue.empty())
 	{
-		Node** node = queue.top();
+		Node* node = queue.top();
 		queue.pop();
-		if ((*node)->ignore) continue;
+		if (node->ignore) continue;
 		float minMSE=-1.0; 
-		Node** bestNode=NULL;
+		float z;
+		Node* bestNode=NULL;
 		Node* mergeNode=NULL;
-		for (auto edge : (*node)->edges) {
-			Node* currentNode = *edge;
+		for (auto dest:node->edges) {
 			float currentMSE;
-			mergeNode = *node;
-			currentMSE = (*node)->testMerge(currentNode);
+			mergeNode = node;
+			currentMSE = node->testMerge(dest);
+			z = (node->extraData.meanVector[2] * node->extraData.pixelNumber + dest->extraData.meanVector[2] * dest->extraData.pixelNumber) / (node->extraData.pixelNumber + dest->extraData.pixelNumber);
 			if ((minMSE < 0) || (currentMSE < minMSE)) {
 				minMSE = currentMSE;
-				bestNode = edge;
+				bestNode = dest;
 			}
 		}
-		if ((mergeNode==NULL)||(minMSE >= pow(((SIGMA* mergeNode->extraData.meanVector(2)* mergeNode->extraData.meanVector(2) + EPSILON)), 2))) {
-			if ((*node)->extraData.pixelNumber > T_NUM) {
-				coarseResult.push_back(*node);
+		if ((bestNode==NULL)||(minMSE >= pow(((SIGMA * z*z + EPSILON)), 2))) {
+			if (node->extraData.pixelNumber > T_NUM) {
+				coarseResult.push_back(node);
 			}
-			for (auto neighbouringNode : (*node)->edges) {
-				(*neighbouringNode)->edges.erase(node);
+			for (auto neighbouringNode : node->edges) {
+				neighbouringNode->edges.erase(node);
 			}
-			(*node)->ignore = true;
+			node->ignore = true;
 		}
 		else {
-			(*node)->merge(*bestNode);
-			int count = (**node).pixelIndex.size() - (**node).extraData.pixelNumber;
-			for (auto neighbouringNode : (*bestNode)->edges) {
-				(*neighbouringNode)->edges.erase(bestNode);
-				if (neighbouringNode!=node)
-					(*neighbouringNode)->edges.insert(node);
+			node->merge(bestNode);
+			for (auto neighbouringNode : bestNode->edges) {
+				neighbouringNode->edges.erase(bestNode);
+				if (neighbouringNode != node) {
+					neighbouringNode->edges.insert(node);
+					node->edges.insert(neighbouringNode);
+				}
 			}
-			(*bestNode)->ignore = true;
+			bestNode->ignore = true;
 			queue.push(node);
 		}
 	}
 
-	//
 }
 
 void refine(std::vector<Node*>& graph) {
