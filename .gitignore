@@ -244,3 +244,5 @@ ModelManifest.xml
 # FAKE - F# Make
 .fake/
 /TodoList.cpp
+/Graph2.h
+/PlaneExtraction2.cpp

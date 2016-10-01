@@ -29,7 +29,7 @@ public:
 
 
 //use Eigen for matrix decomposition;OpenBlas may be faster
-FittingParam fitPlane(Matrix3f covarianceMatrix) {
+FittingParam fitPlane(Matrix3f covarianceMatrix,int number) {
 	JacobiSVD<MatrixXf> svd(covarianceMatrix, ComputeThinU | ComputeThinV);
 	Vector3f eigenvalues = svd.singularValues();
 	Matrix3f eigenvectors = svd.matrixU();
@@ -51,7 +51,7 @@ FittingParam fitPlane(Matrix3f covarianceMatrix) {
 		break;
 	}
 
-	return FittingParam(normal, eigenvalues(minIndex));
+	return FittingParam(normal, eigenvalues(minIndex)/number);
 }
 
 class Node {
@@ -72,7 +72,7 @@ public:
 		int pixelNumber = 0;
 	}extraData;
 
-	Node(int* arr=NULL, int x=0,int y=0,int nodesize=0,int row=0,int column=0) {
+	Node(float* arr=NULL, int x=0,int y=0,int nodesize=0,int row=0,int column=0) {
 		pixels.resize(nodesize*nodesize, 3);
 		if (arr == NULL) return;
 		for (int i = 0; i < nodesize; ++i)
@@ -109,17 +109,16 @@ public:
 		extraData.pixelNumber += node->extraData.pixelNumber;
 		extraData.meanVector /= extraData.pixelNumber;
 		extraData.covarianceMatrix += node->extraData.covarianceMatrix;
-		plane(extraData.covarianceMatrix);
-		//int count = pixelIndex.size() - extraData.pixelNumber;
+		plane(extraData.covarianceMatrix,extraData.pixelNumber);
 		return;
 	}
 
 	float testMerge(Node* node) {
-		return fitPlane(extraData.covarianceMatrix+node->extraData.covarianceMatrix).meanSquareError;
+		return fitPlane(extraData.covarianceMatrix+node->extraData.covarianceMatrix,extraData.pixelNumber+node->extraData.pixelNumber).meanSquareError;
 	}
 
-	void plane(Matrix3f covarianceMatrix) {
-		FittingParam param = fitPlane(covarianceMatrix);
+	void plane(Matrix3f covarianceMatrix,int number) {
+		FittingParam param = fitPlane(covarianceMatrix,number);
 		meanSquareError = param.meanSquareError;
 		planeParam = PlaneParam(param.normal,param.normal.dot(extraData.meanVector));
 	}
@@ -154,26 +153,21 @@ bool Node::rejectNode() {
 		}
 
 	//over-MSE
-	plane(extraData.covarianceMatrix);
+	plane(extraData.covarianceMatrix,extraData.pixelNumber);
 
 	if (meanSquareError > pow(((SIGMA*extraData.meanVector(2)*extraData.meanVector(2) + EPSILON)), 2))
 		return true;
-	
-	//一旦不加这句就会死循环
-	//if (meanSquareError == 0) return true;
+
 
 	return false;
 }
 
 class Graph {
 public:
-	//int row, column;
-	std::vector<Node*> graph;
+	std::vector<Node*>& graph;
 	
-
 	Graph(std::vector<Node*>& nodes): graph(nodes) {}
-	Graph() {}
-
+	
 	void connectEdge(int row,int column);
 	void addNode(Node* node) {
 		graph.push_back(node);

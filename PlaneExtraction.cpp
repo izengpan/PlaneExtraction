@@ -4,13 +4,16 @@
 #include "Graph.h"
 #include <fstream>
 #include <iostream>
+//#include <cv.hpp>
+//#include <highgui.hpp>
 
 
 //global variable
 int row;
 int column;
-int* pixelNode;
+int* pixelNode;  //record which node does a pixel belong to
 std::vector<Node*> coarseResult;
+
 class cmp {
 public:
 	bool operator()(Node* n1, Node* n2) {
@@ -81,11 +84,11 @@ void refine(std::vector<Node*>& graph) {
 int main() {
 	std::ifstream os;
 	os.open("depth.txt");
-	int* data;
+	float* data;
+	float* testdata;
 	os >> row>>column;
-	data = new int[row*column*3];
+	data = new float[row*column*3];
 	pixelNode = new int[row*column];
-
 	int k = 0;
 	for (int i = 0; i < row; ++i) 
 		for (int j = 0; j < column; ++j) {
@@ -95,7 +98,9 @@ int main() {
 			data[k++] = (float)(j - column / 2) / 528 * d;
 			data[k++] = d;
 		}
-	Graph rawdata;
+
+	std::vector<Node*> g;
+	Graph rawdata(g);
 
 	for (int i = 0; i < row / NODE_SIZE; ++i) 
 		for (int j = 0; j < column / NODE_SIZE; ++j) {
@@ -107,8 +112,20 @@ int main() {
 			else rawdata.addNode(currentNode);
 		
 		}
-
+	
 	rawdata.connectEdge(row/NODE_SIZE,column/NODE_SIZE);
 	AHCluster(rawdata.graph);
+	k = 0;
+	/*cv::Mat segment(480,640,CV_32FC1);
+	for (auto node : coarseResult) {
+		k++;
+		if (node->pixelIndex.size() > 800) {
+			for (auto index : node->pixelIndex) {
+				segment.at<float>(index[0], index[1]) = (float)k / 150;
+			}
+		}
+	}
+	cv::imshow("...", segment);
+	cvWaitKey();*/
 	return 0;
 }
